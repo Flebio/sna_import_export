@@ -10,6 +10,7 @@ from scipy import stats
 import csv
 from collections import defaultdict
 from collections import Counter
+from plotly.subplots import make_subplots
 
 
 # Function to format GDP values
@@ -215,8 +216,8 @@ def centrality(cent, type, threshold, color='skyblue'):
         print(f"{node}: {centrality:.4f}")
 
     return dict(sorted_high_centrality_nodes)
-    
-def centrality_heatmap(cent, type, color='Viridis'):
+   
+def centrality_heatmap(cent, type, typello, color='Viridis'):
     countries = list(cent.keys())
     centrality_values = list(cent.values())
 
@@ -224,18 +225,48 @@ def centrality_heatmap(cent, type, color='Viridis'):
         locations=countries,
         locationmode='country names',
         z=centrality_values,
-        colorscale=color,
-        colorbar_title=type
+        colorscale=color
     ))
 
     fig.update_layout(
-        title=f'{type} of Countries',
+        title=f'{type} Heatmap - {typello} Network',
         geo=dict(showframe=False, showcoastlines=True, projection_type='equirectangular'),
-        height=500
+        height=500,
+        width=700
     )
 
     fig.show()
 
+
+
+def top_centrality(cent, type, typello, top_n=15, color='skyblue'):
+    # Sort countries and their centrality values by centrality values in descending order
+    sorted_items = sorted(cent.items(), key=lambda item: item[1], reverse=True)
+    
+    # Take only the top_n items
+    top_items = sorted_items[:top_n]
+    sorted_countries = [item[0] for item in top_items][::-1]  # Reverse the order
+    sorted_centrality_values = [round(item[1], 3) for item in top_items][::-1]  # Reverse the order and round to 3 decimals
+
+    fig = go.Figure(data=[go.Bar(
+        y=sorted_countries,  # Use y instead of x for horizontal bars
+        x=sorted_centrality_values,  # Use x instead of y for horizontal bars
+        marker_color=color,
+        orientation='h',  # Set the orientation to horizontal
+        text=sorted_centrality_values,  # Add text to bars
+        textposition='auto'  # Position text automatically for better visibility
+    )])
+
+    fig.update_layout(
+        title=f'Top {top_n} {type} of Nodes - {typello}',
+        xaxis_title=type,
+        yaxis_title='Country',
+        xaxis=dict(tickfont=dict(size=10)),  # Adjusted font size for better visibility
+        width=500,  # Set width to 500
+        height=500  # Set height to 500
+    )
+
+    fig.show()
 
 
 
@@ -309,6 +340,119 @@ def plot_centrality_power_law(centrality_values, G, bins, type, color):
     print(f"The slope of the line is: {slope}")
     return slope
 
+
+# Function to plot centrality power law for two sets of centrality values
+def plot_centrality_power_law_both(centrality_values1, centrality_values2, binz, type, color1, color2):
+    def calculate_histogram_and_fit(centrality_values, bins):
+        # Calculate histogram
+        freq, bins = np.histogram(centrality_values, bins=bins)
+
+        # Calculate bin centers
+        x = (bins[:-1] + bins[1:]) / 2  # x = center value of each bin
+        y = freq  # y = occurrence
+
+        # Filter out zero values
+        non_zero_indices = np.where(y > 0)
+        x_display = x[non_zero_indices]
+        y_display = y[non_zero_indices]
+
+        # Exclude the last value for the fit (if it's an outlier)
+        fit_points = np.where(x_display < np.max(x_display))
+        x_fit = x_display[fit_points]
+        y_fit = y_display[fit_points]
+
+        # Take the logarithm of x and y
+        log_x_display = np.log10(x_display)
+        log_y_display = np.log10(y_display)
+        log_x_fit = np.log10(x_fit)
+        log_y_fit = np.log10(y_fit)
+
+        # Fit a straight line to the data
+        coeffs = np.polyfit(log_x_fit, log_y_fit, 1)
+
+        # Generate y-values for the fitted line
+        fitted_y = coeffs[0] * log_x_fit + coeffs[1]
+
+        # Perform linear regression and get p-value
+        slope, intercept, r_value, p_value, std_err = stats.linregress(log_x_fit, log_y_fit)
+
+        return log_x_display, log_y_display, log_x_fit, fitted_y, p_value, r_value
+
+    # Calculate histogram and fit for the first set
+    log_x_display1, log_y_display1, log_x_fit1, fitted_y1, p_value1, r_value1 = calculate_histogram_and_fit(centrality_values1, binz)
+    # Calculate histogram and fit for the second set
+    log_x_display2, log_y_display2, log_x_fit2, fitted_y2, p_value2, r_value2 = calculate_histogram_and_fit(centrality_values2, binz)
+
+    # Create the plot with two subplots
+    fig = make_subplots(rows=1, cols=2, subplot_titles=('Exports Network', 'Imports Network'))
+
+    # Plot for the first set
+    fig.add_trace(go.Scatter(
+        x=log_x_display1,
+        y=log_y_display1,
+        mode='markers',
+        name='Exports Data',
+        marker=dict(color='blue')
+    ), row=1, col=1)
+    fig.add_trace(go.Scatter(
+        x=log_x_fit1,
+        y=fitted_y1,
+        mode='lines',
+        name='Best fit line',
+        line=dict(color=color1)
+    ), row=1, col=1)
+
+    # Plot for the second set
+    fig.add_trace(go.Scatter(
+        x=log_x_display2,
+        y=log_y_display2,
+        mode='markers',
+        name='Imports Data',
+        marker=dict(color='red')
+    ), row=1, col=2)
+    fig.add_trace(go.Scatter(
+        x=log_x_fit2,
+        y=fitted_y2,
+        mode='lines',
+        name='Best fit line',
+        line=dict(color=color2)
+    ), row=1, col=2)
+
+    # Update layout for the first subplot
+    fig.update_xaxes(title_text='Log ' + type + ' Centrality', row=1, col=1)
+    fig.update_yaxes(title_text='Log Frequency', row=1, col=1)
+
+    # Update layout for the second subplot
+    fig.update_xaxes(title_text='Log ' + type + ' Centrality', row=1, col=2)
+    fig.update_yaxes(title_text='Log Frequency', row=1, col=2)
+
+    # Update overall layout
+    fig.update_layout(
+        title='Log-Log Plot of ' + type +' Centrality Distribution',
+        height=500,
+        width=1000,
+        annotations=[
+            dict(
+                x=min(log_x_display1),
+                y=max(log_y_display1),
+                text=f'p-value: {p_value1:.1e} \nR: {r_value1:.2f}',
+                showarrow=False,
+                bgcolor='white'
+            ),
+            dict(
+                x=min(log_x_display2),
+                y=max(log_y_display2),
+                text=f'p-value: {p_value2:.1e} \nR: {r_value2:.2f}',
+                showarrow=False,
+                bgcolor='white'
+            )
+        ]
+    )
+
+    # Show the plot
+    fig.show()
+
+
 # Plot Cumulative Distribution Graph
 def cumulative_distribution(centrality_values, type, color):
     # Sort the degree centrality values
@@ -349,6 +493,62 @@ def cumulative_distribution(centrality_values, type, color):
     )
 
     fig.show()
+
+
+
+def cumulative_distribution_both(centrality_values1, centrality_values2,type, color1, color2):
+    # Sort the first set of centrality values
+    sorted_centrality_values1 = np.sort(centrality_values1)
+    # Cumulative distribution for the first set
+    cdf1 = np.arange(1, len(sorted_centrality_values1) + 1) / len(sorted_centrality_values1)
+    
+    # Sort the second set of centrality values
+    sorted_centrality_values2 = np.sort(centrality_values2)
+    # Cumulative distribution for the second set
+    cdf2 = np.arange(1, len(sorted_centrality_values2) + 1) / len(sorted_centrality_values2)
+
+    # Create the plot with two subplots
+    fig = make_subplots(rows=1, cols=2,subplot_titles=('Exports Network','Imports Network'))
+
+    # Log-log scale plot for the first set
+    fig.add_trace(go.Scatter(
+        x=sorted_centrality_values1,
+        y=cdf1,
+        mode='lines',
+        name='Exports',
+        line=dict(color=color1)
+    ), row=1, col=1)
+
+    # Log-log scale plot for the second set
+    fig.add_trace(go.Scatter(
+        x=sorted_centrality_values2,
+        y=cdf2,
+        mode='lines',
+        name='Imports',
+        line=dict(color=color2)
+    ), row=1, col=2)
+
+    # Update axes to log-log scale for the first plot
+    fig.update_xaxes(type="log", title_text=f'{type}', row=1, col=1)
+    fig.update_yaxes(type="log", title_text='Cumulative Frequency', row=1, col=1)
+
+    # Update axes to log-log scale for the second plot
+    fig.update_xaxes(type="log", title_text=f'{type}', row=1, col=2)
+    fig.update_yaxes(type="log", title_text='Cumulative Frequency', row=1, col=2)
+
+    # Update layout
+    fig.update_layout(
+        title=f'{type} Cumulative Distribution (Log-Log Scale)',
+        height=500,
+        width=1000
+    )
+
+    # Show the plot
+    fig.show()
+
+# Example usage (assuming centrality_values1 and centrality_values2 are defined):
+# cumulative_distribution(centrality_values1, 'Type1', 'blue', centrality_values2, 'Type2', 'red')
+
 
 
 # Pearson correlation coefficient
