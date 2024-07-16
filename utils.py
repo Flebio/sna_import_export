@@ -269,6 +269,55 @@ def top_centrality(cent, type, typello, top_n=15, color='skyblue'):
     fig.show()
 
 
+# Plot top n countries with the biggest differential between two centrality values
+def top_centrality_diff(cent1, cent2, type1, type2, typello, top_n=15, color1='skyblue', color2='orange'):
+    
+    diff = {country: cent1.get(country, 0) - cent2.get(country, 0) for country in set(cent1) | set(cent2)}
+
+    sorted_diff_items = sorted(diff.items(), key=lambda item: abs(item[1]), reverse=True)
+    
+    top_diff_items = sorted_diff_items[:top_n]
+    sorted_countries = [item[0] for item in top_diff_items][::-1] 
+    sorted_differential_values = [round(item[1], 3) for item in top_diff_items][::-1]  
+
+    cent1_values = [round(cent1.get(country, 0), 3) for country in sorted_countries]
+    cent2_values = [round(cent2.get(country, 0), 3) for country in sorted_countries]
+
+    
+    trace1 = go.Bar(
+        y=sorted_countries, 
+        x=cent1_values, 
+        marker_color=color1,
+        orientation='h', 
+        name=type1,
+        text=cent1_values,
+        textposition='auto'
+    )
+
+    trace2 = go.Bar(
+        y=sorted_countries,  
+        x=cent2_values, 
+        marker_color=color2,
+        orientation='h', 
+        name=type2,
+        text=cent2_values,  
+        textposition='auto'  
+    )
+
+    fig = go.Figure(data=[trace1, trace2])
+
+    fig.update_layout(
+        title=f'Top {top_n} Countries with Biggest Differential in {typello}',
+        xaxis_title='Centrality Value',
+        yaxis_title='Country',
+        xaxis=dict(tickfont=dict(size=10)),  
+        width=700, 
+        height=600,  
+        barmode='group'  
+    )
+
+    fig.show()
+
 
 # Plot Centrality Power Law
 def plot_centrality_power_law(centrality_values, G, bins, type, color):
