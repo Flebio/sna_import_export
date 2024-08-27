@@ -736,4 +736,25 @@ def plot_commodity_on_world_map(G, centrality, commodity, title='Commodity Shari
                 )
     fig.show()
 
+def avg_shortestpath(G):
+    if nx.is_strongly_connected(G):
+        avg_shortest_path_length = nx.average_shortest_path_length(G)
+        print(f"Average Shortest Path Length: {avg_shortest_path_length:.4f}")
+    else:
+        # For weakly connected graphs, compute the average for each strongly connected component
+        components = list(nx.strongly_connected_components(G))
+        total_length = 0
+        total_nodes = 0
+        
+        for component in components:
+            if len(component) > 1:
+                subgraph = G.subgraph(component)
+                avg_length = nx.average_shortest_path_length(subgraph)
+                total_length += avg_length * len(component)
+                total_nodes += len(component)
+        
+        avg_shortest_path_length = total_length / total_nodes if total_nodes > 0 else float('inf')
+        print(f"Average Shortest Path Length (average of strongly connected components): {avg_shortest_path_length:.4f}")
+    return avg_shortest_path_length
+
 
