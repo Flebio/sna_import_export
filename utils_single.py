@@ -1,17 +1,17 @@
-import json
+import json, csv
 import networkx as nx
 import pandas as pd
+import numpy as np
+from scipy import stats
+from collections import defaultdict
+from collections import Counter
+
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-import numpy as np
-from scipy import stats
-import csv
-from collections import defaultdict
-from collections import Counter
-from plotly.subplots import make_subplots
 
+from utils_single import *
 
 # Function to format GDP values
 def format_gdp(gdp_value):
@@ -110,7 +110,7 @@ def create_graph(df, node_attributes):
     # Add node attributes
     for node, attributes in node_attributes.items():
         G.nodes[node].update(attributes)
-    
+
     return G
 
 def plot_network_on_world_map(G, centrality, cliques=None, title='Network Visualization', color_export='skyblue', color_import='orange'):
@@ -270,7 +270,6 @@ def centrality_heatmap(cent, type, color='Viridis'):
     )
 
     fig.show()
-
 
 def top_centrality(cent, type, top_n=15, color='skyblue'):
     # Sort countries and their centrality values by centrality values in descending order
@@ -463,8 +462,7 @@ def cumulative_distribution(centrality, type, color):
 
     fig.show()
 
-
-    # Pearson correlation coefficient
+# Pearson correlation coefficient
 def correlation_cd(clustering_coeffs, degree_centrality, color='skyblue'):
     clustering_coeffs_values = list(clustering_coeffs.values())
     degree_centrality_values = list(degree_centrality.values())
@@ -563,7 +561,6 @@ def find_countries_with_common_commodities(G):
             commodity_to_countries_import[commodity].append(country)
     
     return commodity_to_countries, commodity_to_countries_export, commodity_to_countries_import
-
 
 def analyze_commodities(node_attributes):
     commodity_counter_export = Counter()
