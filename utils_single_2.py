@@ -11,6 +11,108 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
+# We retrieve only the countries that have all the followings informations
+key_mapping = {
+        "Economy: Real GDP (purchasing power parity)": "GDP",
+        "Economy: GDP - composition, by end use - exports of goods and services": "GDP% Exports",
+        "Economy: GDP - composition, by end use - imports of goods and services": "GDP% Imports",
+        "Economy: Exports": "Exports $",
+        "Economy: Exports - partners": "Export Partners",
+        "Economy: Exports - commodities": "Export Commodities",
+        "Economy: Imports": "Imports $",
+        "Economy: Imports - partners": "Import Partners",
+        "Economy: Imports - commodities": "Import Commodities",
+        "Geography: Geographic coordinates": "Coordinates",
+        "Government: Government type": 'Government type' 
+    }
+
+# And map some country names for convenience
+country_mapping = {
+    'UK': 'United Kingdom',
+    'US': 'United States',
+    'UAE': 'United Arab Emirates',
+    'Gambia, The': 'Gambia',
+    'Turkey (Turkiye)': 'Turkey',
+    'Congo, Democratic Republic of the': 'Congo',
+    'Democratic Republic of the Congo': 'Congo',
+    'Congo, Republic of the': 'Congo',
+    'Republic of the Congo': 'Congo',
+    'Korea, South': 'South Korea',
+    'Korea, North': 'North Korea',
+    'Cost Rica': 'Costa Rica',
+    'NZ': 'New Zealand',
+    'Micronesia, Federated States of': 'Micronesia',
+    'Bahamas, The': 'Bahamas'
+}
+
+government_type_mapping = {
+    'presidential republic': 'Presidential Republic',
+    'Republic of Cyprus - presidential republic; self-declared "Turkish Republic of Northern Cyprus"': 'Presidential Republic',
+    'presidential republic in free association with the US': 'Presidential Republic',
+    
+    'constitutional federal republic': 'Federal Republic',
+    'federal republic in free association with the US': 'Federal Republic',
+    'federal republic': 'Federal Republic',
+    
+    'federal presidential republic': 'Federal Presidential Republic',
+    
+    'federal parliamentary democracy': 'Federal Parliamentary Republic',
+    'federal parliamentary republic': 'Federal Parliamentary Republic',
+
+    'parliamentary democracy under a constitutional monarchy; a Commonwealth realm': 'Constitutional Monarchy',
+    'federal parliamentary democracy under a constitutional monarchy; a Commonwealth realm': 'Constitutional Monarchy',
+    'federal parliamentary democracy under a constitutional monarchy': 'Constitutional Monarchy',
+    'parliamentary constitutional monarchy': 'Constitutional Monarchy',
+    'parliamentary republic; a Commonwealth realm': 'Constitutional Monarchy',
+    'parliamentary democracy; part of the Kingdom of the Netherlands': 'Constitutional Monarchy',
+    'Overseas Territory of the UK with limited self-government; parliamentary democracy': 'Constitutional Monarchy',
+    'parliamentary constitutional monarchy; a Commonwealth realm': 'Constitutional Monarchy',
+    'parliamentary democracy; self-governing overseas territory of the UK': 'Constitutional Monarchy',
+    'constitutional monarchy': 'Constitutional Monarchy',
+    'federal parliamentary constitutional monarchy': 'Constitutional Monarchy',
+    'parliamentary constitutional monarchy; part of the Kingdom of the Netherlands': 'Constitutional Monarchy',
+
+    'unincorporated organized territory of the US with local self-government; republican form of territorial government with separate executive, legislative, and judicial branches': 'Territorial Government',
+    'unincorporated, unorganized Territory of the US with local self-government; republican form of territorial government with separate executive, legislative, and judicial branches': 'Territorial Government',
+    'a commonwealth in political union with and under the sovereignty of the US; republican form of government with separate executive, legislative, and judicial branches': 'Territorial Government',
+    'unincorporated organized territory of the US with local self-government; republican form of territorial government with separate executive, legislative, and judicial branches; note - reference Puerto Rican Federal Relations Act, 2 March 1917, as amended by Public Law 600, 3 July 1950': 'Territorial Government',
+
+    'presidential republic; authoritarian': 'Authoritarian Republic',
+    'presidential republic; highly authoritarian': 'Authoritarian Republic',
+    'presidential republic; highly authoritarian regime': 'Authoritarian Republic',
+
+    'executive-led limited democracy; a special administrative region of the People\'s Republic of China': 'Limited Democracy',
+    'presidential limited democracy; a special administrative region of the People\'s Republic of China': 'Limited Democracy',
+
+    'presidential republic in name, although in fact a dictatorship': 'Dictatorship',
+    'dictatorship, single-party state; official state ideology of "Juche" or "national self-reliance"': 'Dictatorship',
+
+    'parliamentary republic': 'Parliamentary Republic',
+    'unitary parliamentary republic': 'Parliamentary Republic',
+    'parliamentary democracy; note - constitutional changes adopted in December 2015 transformed the government to a parliamentary system': 'Parliamentary Republic',
+    'parliamentary democracy': 'Parliamentary Republic',
+
+    'theocratic; the United States does not recognize the Taliban Government': 'Theocratic',
+    'theocratic republic': 'Theocratic',
+
+    'communist state': 'Communist State',
+    'communist party-led state': 'Communist State',
+
+    'mixed presidential-parliamentary system in free association with the US': 'Mixed System',
+
+    'absolute monarchy or sultanate': 'Absolute Monarchy',
+    'absolute monarchy': 'Absolute Monarchy',
+
+    'federation of monarchies': 'Federation of Monarchies',
+    
+    'semi-presidential republic': 'Semi-Presidential Republic',
+    'semi-presidential federation': 'Semi-Presidential Federation',
+    
+    'military regime': 'Military Regime',
+
+    'in transition': 'Transitional Government'
+}
+
 # Function to format GDP values
 def format_gdp(gdp_value):
     try:
@@ -292,52 +394,164 @@ def heatmap(measure_dict, type, color='Viridis'):
 
     fig.show()
 
-def top_centrality_diff(cent1, cent2, type1, type2, typello, top_n=15, color1='skyblue', color2='orange'):
-    
-    diff = {country: cent1.get(country, 0) - cent2.get(country, 0) for country in set(cent1) | set(cent2)}
+from collections import Counter
+import plotly.graph_objs as go
 
-    sorted_diff_items = sorted(diff.items(), key=lambda item: abs(item[1]), reverse=True)
-    
-    top_diff_items = sorted_diff_items[:top_n]
-    sorted_countries = [item[0] for item in top_diff_items][::-1] 
-    #sorted_differential_values = [round(item[1], 3) for item in top_diff_items][::-1]  
+def plot_government_types(node_attributes, top_countries, worst_countries):
+    """
+    Plots the count of government types for top and worst countries and prints the list of countries with their government types.
 
+    Parameters:
+    - node_attributes (dict): A dictionary containing attributes for each country, including government type.
+    - top_countries (list): A list of top countries to be analyzed.
+    - worst_countries (list): A list of worst countries to be analyzed.
+
+    Returns:
+    - None: The function will display a bar plot and print government types for the top and worst countries.
+    """
+    # Count government types for top and worst countries
+    top_country_gov_types = [node_attributes[country]["Government Type"] for country in top_countries]
+    worst_country_gov_types = [node_attributes[country]["Government Type"] for country in worst_countries]
+
+    # Get counts of each government type
+    top_gov_type_counts = Counter(top_country_gov_types)
+    worst_gov_type_counts = Counter(worst_country_gov_types)
+
+    # Union of government types from both top and worst countries
+    gov_types = set(top_gov_type_counts.keys()).union(worst_gov_type_counts.keys())
+
+    # Get the counts for each government type in the top and worst countries
+    top_counts = [top_gov_type_counts.get(gov_type, 0) for gov_type in gov_types]
+    worst_counts = [worst_gov_type_counts.get(gov_type, 0) for gov_type in gov_types]
+
+    # Create a bar plot
+    fig = go.Figure()
+
+    # Adding bars for top countries
+    fig.add_trace(go.Bar(
+        x=list(gov_types),
+        y=top_counts,
+        name='Top Countries',
+        marker_color='skyblue'
+    ))
+
+    # Adding bars for worst countries
+    fig.add_trace(go.Bar(
+        x=list(gov_types),
+        y=worst_counts,
+        name='Worst Countries',
+        marker_color='lightcoral'
+    ))
+
+    # Updating layout
+    fig.update_layout(
+        title='Count of Government Types in Top and Worst Countries',
+        xaxis_title='Government Type',
+        yaxis_title='Count',
+        barmode='group'
+    )
+
+    # Display the figure
+    fig.show()
+
+    # Print government types for top countries
+    print("Top Countries")
+    print(f"\t{'Country':<25} | {'Government Type':<40}")
+    print('\t' + '-' * 65)
+    for country in top_countries:
+        gov_type = node_attributes[country]["Government Type"]
+        print(f"\t{country:<25} | {gov_type:<40}")
+    print()
+
+    # Print government types for worst countries
+    print("Worst Countries")
+    print(f"\t{'Country':<25} | {'Government Type':<40}")
+    print('\t' + '-' * 65)
+    for country in worst_countries:
+        gov_type = node_attributes[country]["Government Type"]
+        print(f"\t{country:<25} | {gov_type:<40}")
+
+def top_centrality_diff(cent1, cent2, type1, type2, typello, top_n=15, color1='skyblue', color2='orange', diff_color='green', ratio_color='purple', relative=False, text=False):
+    
+    # Calculate the difference and the difference ratio between the two centrality dictionaries
+    diff = {country: abs(cent1.get(country, 0) - cent2.get(country, 0)) for country in set(cent1) | set(cent2)}
+    ratio = {country: abs(cent1.get(country, 0) - cent2.get(country, 1)) / max(cent1.get(country, 0), cent2.get(country, 1)) for country in set(cent1) | set(cent2)}
+
+    # Sort the countries based on the relative parameter
+    if relative:    
+        # Sort by relative difference
+        top_diff_items = sorted(ratio.items(), key=lambda item: item[1], reverse=True)[:top_n]
+    else:
+        # Sort by absolute difference
+        top_diff_items = sorted(diff.items(), key=lambda item: item[1], reverse=True)[:top_n]
+
+    # Prepare data for the plots
+    sorted_countries = [item[0] for item in top_diff_items]  # Get the country names (no need to reverse the list)
     cent1_values = [round(cent1.get(country, 0), 3) for country in sorted_countries]
     cent2_values = [round(cent2.get(country, 0), 3) for country in sorted_countries]
+    diff_values = [round(diff.get(country, 0), 3) for country in sorted_countries]  # Get the absolute differences
+    ratio_values = [round(ratio.get(country, 0), 3) for country in sorted_countries]  # Get the relative differences
 
     
+    # Create the first bar trace for cent1
     trace1 = go.Bar(
-        y=sorted_countries, 
-        x=cent1_values, 
+        x=sorted_countries, 
+        y=cent1_values, 
         marker_color=color1,
-        orientation='h', 
         name=type1,
-        text=cent1_values,
-        textposition='auto'
+        text=cent1_values if text else None,
+        textposition='auto',
+        textfont=dict(size=14)
     )
 
+    # Create the second bar trace for cent2
     trace2 = go.Bar(
-        y=sorted_countries,  
-        x=cent2_values, 
+        x=sorted_countries,  
+        y=cent2_values, 
         marker_color=color2,
-        orientation='h', 
         name=type2,
-        text=cent2_values,  
-        textposition='auto'  
+        text=cent2_values if text else None, 
+        textposition='auto',
+        textfont=dict(size=14)
     )
 
-    fig = go.Figure(data=[trace1, trace2])
+    # Create the third bar trace for the absolute difference values
+    trace3 = go.Bar(
+        x=sorted_countries,  
+        y=diff_values, 
+        marker_color=diff_color,
+        name='Absolute Difference',
+        text=diff_values if text else None,  
+        textposition='auto',
+        textfont=dict(size=14)
+    )
 
+    # Create the fourth bar trace for the relative difference values
+    trace4 = go.Bar(
+        x=sorted_countries,  
+        y=ratio_values, 
+        marker_color=ratio_color,
+        name='Relative Difference',
+        text=ratio_values if text else None,  
+        textposition='auto',
+        textfont=dict(size=14)
+    )
+
+    # Combine the traces into a single figure
+    fig = go.Figure(data=[trace1, trace2, trace3, trace4])
+
+    # Update the layout of the figure
     fig.update_layout(
-        title=f'Top {top_n} Countries with Biggest Differential in {typello}',
-        xaxis_title='Centrality Value',
-        yaxis_title='Country',
+        title=f'Top {top_n} Countries by {"relative" if relative else "absolute"} difference in {typello}',
+        yaxis_title='Centrality Value',
+        xaxis_title='Country',
         xaxis=dict(tickfont=dict(size=10)),  
-        # width=700, 
-        # height=600,  
+        width=800,  # Adjust width to accommodate four bars
+        height=400,  
         barmode='group'  
     )
 
+    # Display the figure
     fig.show()
 
 # Plot Centrality Power Law
