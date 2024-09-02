@@ -11,6 +11,8 @@ import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 
+# COSE USATE
+
 # We retrieve only the countries that have all the followings informations
 key_mapping = {
         "Economy: Real GDP (purchasing power parity)": "GDP",
@@ -23,7 +25,7 @@ key_mapping = {
         "Economy: Imports - partners": "Import Partners",
         "Economy: Imports - commodities": "Import Commodities",
         "Geography: Geographic coordinates": "Coordinates",
-        "Government: Government type": 'Government type' 
+        "Government: Government type": 'Government type'
     }
 
 # And map some country names for convenience
@@ -126,7 +128,26 @@ def format_gdp(gdp_value):
             return None
     except ValueError:
         return None
-        
+
+def str_to_int(value_str):
+    # Remove the dollar sign and any commas
+    value_str = value_str.replace('$', '').replace(',', '')
+    
+    # Split the number and the magnitude (e.g., '3.716' and 'trillion')
+    parts = value_str.split()
+    number = float(parts[0])
+    magnitude = parts[1].lower()
+    
+    # Convert based on the magnitude
+    if magnitude == 'trillion':
+        return int(number * 1e12)
+    elif magnitude == 'billion':
+        return int(number * 1e9)
+    elif magnitude == 'million':
+        return int(number * 1e6)
+    else:
+        raise ValueError("Unknown magnitude: " + magnitude)
+
 def convert_to_decimal(coord):
     def parse_dms(dms):
         parts = dms.split()
@@ -159,11 +180,12 @@ def create_df(data, country_mapping):
         country_mapped = country_mapping.get(country, country)
         
         # Extract GDP values based on the specified attributes
-        gdp = format_gdp(country_data.get('GDP', ''))
+        gdp = format_gdp(country_data.get('GDP', '')) # Se po cacciare
+        exports_gdp = country_data.get('GDP% Exports', '') # Se po cacciare
+        imports_gdp = country_data.get('GDP% Imports', '') # Se po cacciare
+
         exports_money = format_gdp(country_data.get('Exports $', ''))
         imports_money = format_gdp(country_data.get('Imports $', ''))
-        exports_gdp = country_data.get('GDP% Exports', '')
-        imports_gdp = country_data.get('GDP% Imports', '')
         coords = country_data.get('Coordinates', {})
         gov_type = country_data.get('Government type', {})
         
@@ -182,7 +204,7 @@ def create_df(data, country_mapping):
         }
 
         # Add export edges
-        for partner, _ in partners_export.items():
+        for partner, percentage in partners_export.items():
             partner_mapped = country_mapping.get(partner, partner)
             if partner_mapped in data:  # Only add the edge if partner exists in the data
                 edge = (country_mapped, partner_mapped)
@@ -190,11 +212,12 @@ def create_df(data, country_mapping):
                     partner_data.append({
                         'source': country_mapped,
                         'target': partner_mapped,
+                        'weight': (exports_money * float(percentage)) / 100
                     })
                     existing_edges.add(edge)
         
         # Add import edges (reversed direction)
-        for partner, _ in partners_import.items():
+        for partner, percentage in partners_import.items():
             partner_mapped = country_mapping.get(partner, partner)
             if partner_mapped in data:  # Only add the edge if partner exists in the data
                 edge = (partner_mapped, country_mapped)
@@ -202,9 +225,10 @@ def create_df(data, country_mapping):
                     partner_data.append({
                         'source': partner_mapped,
                         'target': country_mapped,
+                        'weight': (imports_money * float(percentage)) / 100
                     })
                     existing_edges.add(edge)
-    
+
     df = pd.DataFrame(partner_data)
     
     return df, node_attributes
@@ -215,6 +239,8 @@ def create_graph(df, node_attributes):
     # Add edges with type attribute
     for _, row in df.iterrows():
         G.add_edge(row['source'], row['target'])
+        # G.add_edge(row['source'], row['target'], weight=row['weight'])
+        # G.add_edge(row['source'], row['target'], weight=row['weight'], capacity=row['weight'])
         # G.add_edge(row['source'], row['target'], type=row['type'])
         # G.add_edge(row['source'], row['target'], weight=row['weight'], type=row['type'])
     
@@ -323,7 +349,6 @@ def plot_network_on_world_map(G, centrality, cliques=None, title='Network Visual
                 )
     fig.show()
 
-# Plot Histogram
 def histograms(measure_dict, type, n=10, color='skyblue'):
     # Sort countries and their centrality values in descending order by centrality
     sorted_items = sorted(measure_dict.items(), key=lambda item: -item[1])
@@ -394,10 +419,7 @@ def heatmap(measure_dict, type, color='Viridis'):
 
     fig.show()
 
-from collections import Counter
-import plotly.graph_objs as go
-
-def plot_government_types(node_attributes, top_countries, worst_countries):
+def plot_attribute(attribute, node_attributes, top_countries, worst_countries):
     """
     Plots the count of government types for top and worst countries and prints the list of countries with their government types.
 
@@ -409,25 +431,17 @@ def plot_government_types(node_attributes, top_countries, worst_countries):
     Returns:
     - None: The function will display a bar plot and print government types for the top and worst countries.
     """
-    # Count government types for top and worst countries
-    top_country_gov_types = [node_attributes[country]["Government Type"] for country in top_countries]
-    worst_country_gov_types = [node_attributes[country]["Government Type"] for country in worst_countries]
+    top_country_attribute_values = [node_attributes[country][attribute] for country in top_countries]
+    worst_country_attribute_values = [node_attributes[country][attribute] for country in worst_countries]
 
-    # Get counts of each government type
-    top_gov_type_counts = Counter(top_country_gov_types)
-    worst_gov_type_counts = Counter(worst_country_gov_types)
+    top_attribute_counts = Counter(top_country_attribute_values)
+    worst_attribute_counts = Counter(worst_country_attribute_values)
 
-    # Union of government types from both top and worst countries
-    gov_types = set(top_gov_type_counts.keys()).union(worst_gov_type_counts.keys())
+    gov_types = set(top_attribute_counts.keys()).union(worst_attribute_counts.keys())
+    top_counts = [top_attribute_counts.get(gov_type, 0) for gov_type in gov_types]
+    worst_counts = [worst_attribute_counts.get(gov_type, 0) for gov_type in gov_types]
 
-    # Get the counts for each government type in the top and worst countries
-    top_counts = [top_gov_type_counts.get(gov_type, 0) for gov_type in gov_types]
-    worst_counts = [worst_gov_type_counts.get(gov_type, 0) for gov_type in gov_types]
-
-    # Create a bar plot
     fig = go.Figure()
-
-    # Adding bars for top countries
     fig.add_trace(go.Bar(
         x=list(gov_types),
         y=top_counts,
@@ -435,7 +449,6 @@ def plot_government_types(node_attributes, top_countries, worst_countries):
         marker_color='skyblue'
     ))
 
-    # Adding bars for worst countries
     fig.add_trace(go.Bar(
         x=list(gov_types),
         y=worst_counts,
@@ -443,32 +456,28 @@ def plot_government_types(node_attributes, top_countries, worst_countries):
         marker_color='lightcoral'
     ))
 
-    # Updating layout
     fig.update_layout(
-        title='Count of Government Types in Top and Worst Countries',
-        xaxis_title='Government Type',
+        title=f'Count of {attribute} in Top and Worst Countries',
+        xaxis_title=attribute,
         yaxis_title='Count',
         barmode='group'
     )
-
-    # Display the figure
     fig.show()
 
-    # Print government types for top countries
     print("Top Countries")
-    print(f"\t{'Country':<25} | {'Government Type':<40}")
+    print(f"\t{'Country':<25} | {attribute:<40}")
     print('\t' + '-' * 65)
     for country in top_countries:
-        gov_type = node_attributes[country]["Government Type"]
+        gov_type = node_attributes[country][attribute]
         print(f"\t{country:<25} | {gov_type:<40}")
     print()
 
     # Print government types for worst countries
     print("Worst Countries")
-    print(f"\t{'Country':<25} | {'Government Type':<40}")
+    print(f"\t{'Country':<25} | {attribute:<40}")
     print('\t' + '-' * 65)
     for country in worst_countries:
-        gov_type = node_attributes[country]["Government Type"]
+        gov_type = node_attributes[country][attribute]
         print(f"\t{country:<25} | {gov_type:<40}")
 
 def top_centrality_diff(cent1, cent2, type1, type2, typello, top_n=15, color1='skyblue', color2='orange', diff_color='green', ratio_color='purple', relative=False, text=False):
@@ -554,7 +563,45 @@ def top_centrality_diff(cent1, cent2, type1, type2, typello, top_n=15, color1='s
     # Display the figure
     fig.show()
 
-# Plot Centrality Power Law
+def simrank_plot(simrank_dict, type):
+    simrank_split = {}
+    for (country, us_sim), ch_sim in zip(simrank_dict['United States'].items(), simrank_dict['China'].values()):
+        if ch_sim > us_sim:
+            simrank_split[country] = 1
+            # simrank_split[country] = 'China'
+        else:
+            simrank_split[country] = 0
+            # simrank_split[country] = 'United States'
+    
+    countries = list(simrank_split.keys())
+    simrank_values = list(simrank_split.values())
+
+    # Assign colors based on the value ('China' or 'United States')
+    colors = ['lightcoral' if value == 'China' else 'skyblue' for value in simrank_values]
+
+    fig = go.Figure(data=go.Choropleth(
+        locations=countries,
+        locationmode='country names',
+        z=simrank_values,  
+        colorscale=[[0, 'skyblue'], [1, 'lightcoral']],  
+        zmin=0,
+        zmax=1,
+        showscale=False,  
+        marker_line_color='black',
+        marker_line_width=0.5
+    ))
+
+    # fig.update_traces(marker=dict(colorscale=colors))
+
+    fig.update_layout(
+        title=f'{type}',
+        geo=dict(showframe=False, showcoastlines=True, projection_type='equirectangular'),
+        height=500,
+        width=700
+    )
+
+    fig.show()
+
 def plot_centrality_power_law(measure_dict, bins, type, color):
     measure_values = list(measure_dict.values())
 
@@ -626,7 +673,6 @@ def plot_centrality_power_law(measure_dict, bins, type, color):
     print(f"The slope of the line is: {slope}")
     return slope
 
-# Plot Cumulative Distribution Graph
 def cumulative_distribution(centrality, type, color):
     # Sort the values
     centrality_values = list(centrality.values())
@@ -668,6 +714,8 @@ def cumulative_distribution(centrality, type, color):
 
     fig.show()
 
+
+# COSE NON USATE (O ANCORA NON USATE)
 # Pearson correlation coefficient
 def correlation_cd(clustering_coeffs, degree_centrality, color='skyblue'):
     clustering_coeffs_values = list(clustering_coeffs.values())
