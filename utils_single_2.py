@@ -15,9 +15,9 @@ from plotly.subplots import make_subplots
 
 # We retrieve only the countries that have all the followings informations
 key_mapping = {
-        "Economy: Real GDP (purchasing power parity)": "GDP",
-        "Economy: GDP - composition, by end use - exports of goods and services": "GDP% Exports",
-        "Economy: GDP - composition, by end use - imports of goods and services": "GDP% Imports",
+        # "Economy: Real GDP (purchasing power parity)": "GDP",
+        # "Economy: GDP - composition, by end use - exports of goods and services": "GDP% Exports",
+        # "Economy: GDP - composition, by end use - imports of goods and services": "GDP% Imports",
         "Economy: Exports": "Exports $",
         "Economy: Exports - partners": "Export Partners",
         "Economy: Exports - commodities": "Export Commodities",
@@ -73,6 +73,7 @@ government_type_mapping = {
     'constitutional monarchy': 'Constitutional Monarchy',
     'federal parliamentary constitutional monarchy': 'Constitutional Monarchy',
     'parliamentary constitutional monarchy; part of the Kingdom of the Netherlands': 'Constitutional Monarchy',
+    'parliamentary democracy under a constitutional monarchy': 'Constitutional Monarchy',
 
     'unincorporated organized territory of the US with local self-government; republican form of territorial government with separate executive, legislative, and judicial branches': 'Territorial Government',
     'unincorporated, unorganized Territory of the US with local self-government; republican form of territorial government with separate executive, legislative, and judicial branches': 'Territorial Government',
@@ -148,6 +149,9 @@ def str_to_int(value_str):
     else:
         raise ValueError("Unknown magnitude: " + magnitude)
 
+def parse_value(value_str):
+    return int(value_str.replace('$', '').replace(',', ''))
+
 def convert_to_decimal(coord):
     def parse_dms(dms):
         parts = dms.split()
@@ -180,23 +184,26 @@ def create_df(data, country_mapping):
         country_mapped = country_mapping.get(country, country)
         
         # Extract GDP values based on the specified attributes
-        gdp = format_gdp(country_data.get('GDP', '')) # Se po cacciare
-        exports_gdp = country_data.get('GDP% Exports', '') # Se po cacciare
-        imports_gdp = country_data.get('GDP% Imports', '') # Se po cacciare
+        # gdp = format_gdp(country_data.get('GDP', '')) # Se po cacciare
+        # exports_gdp = country_data.get('GDP% Exports', '') # Se po cacciare
+        # imports_gdp = country_data.get('GDP% Imports', '') # Se po cacciare
 
-        exports_money = format_gdp(country_data.get('Exports $', ''))
-        imports_money = format_gdp(country_data.get('Imports $', ''))
+        # exports_money = format_gdp(country_data.get('Exports $', ''))
+        # imports_money = format_gdp(country_data.get('Imports $', ''))
+
+        exports_money = country_data.get('Exports $', '')
+        imports_money = country_data.get('Imports $', '')
         coords = country_data.get('Coordinates', {})
         gov_type = country_data.get('Government type', {})
         
         # Populate node attributes based on the specified graph type
         node_attributes[country_mapped] = {
             'Government Type': gov_type,
-            'GDP': gdp,
+            # 'GDP': gdp,
             'Exports $': exports_money,
-            'Exports GDP%': exports_gdp,
+            # 'Exports GDP%': exports_gdp,
             'Imports $': imports_money,
-            'Imports GDP%': imports_gdp,
+            # 'Imports GDP%': imports_gdp,
             'Export Commodities': [commodity.strip() for commodity in commodities_export.split(',')],
             'Import Commodities': [commodity.strip() for commodity in commodities_import.split(',')],
             'x': coords.get('lon'),  # Longitude
@@ -222,6 +229,8 @@ def create_df(data, country_mapping):
             if partner_mapped in data:  # Only add the edge if partner exists in the data
                 edge = (partner_mapped, country_mapped)
                 if edge not in existing_edges:  # Avoid duplicate edges
+                    print(imports_money)
+                    print(percentage)
                     partner_data.append({
                         'source': partner_mapped,
                         'target': country_mapped,
@@ -310,7 +319,7 @@ def plot_network_on_world_map(G, centrality, cliques=None, title='Network Visual
         mode='markers+text',
         marker=dict(
             size=[10 + 20 * (centrality[node] - min_centrality) / (max_centrality - min_centrality) for node in G.nodes() if 'x' in G.nodes[node] and 'y' in G.nodes[node]],
-            color=['red' if node in nodes_to_highlight else 'blue' for node in G.nodes() if 'x' in G.nodes[node] and 'y' in G.nodes[node]],
+            color=['lightcoral' if node in nodes_to_highlight else 'skyblue' for node in G.nodes() if 'x' in G.nodes[node] and 'y' in G.nodes[node]],
             line=dict(width=2, color='black')
         ),
         textfont=dict(
@@ -567,37 +576,75 @@ def simrank_plot(simrank_dict, type):
     simrank_split = {}
     for (country, us_sim), ch_sim in zip(simrank_dict['United States'].items(), simrank_dict['China'].values()):
         if ch_sim > us_sim:
-            simrank_split[country] = 1
-            # simrank_split[country] = 'China'
+            simrank_split[country] = 'China'
         else:
-            simrank_split[country] = 0
-            # simrank_split[country] = 'United States'
+            simrank_split[country] = 'United States'
     
-    countries = list(simrank_split.keys())
-    simrank_values = list(simrank_split.values())
+    countries_us = [country for country, label in simrank_split.items() if label == 'United States']
+    countries_china = [country for country, label in simrank_split.items() if label == 'China']
 
-    # Assign colors based on the value ('China' or 'United States')
-    colors = ['lightcoral' if value == 'China' else 'skyblue' for value in simrank_values]
+    color_map = {'United States': 'skyblue', 'China': 'lightcoral'}
 
-    fig = go.Figure(data=go.Choropleth(
-        locations=countries,
+    fig = go.Figure()
+
+    # United States trace
+    fig.add_trace(go.Choropleth(
+        locations=countries_us,
         locationmode='country names',
-        z=simrank_values,  
-        colorscale=[[0, 'skyblue'], [1, 'lightcoral']],  
+        z=[0] * len(countries_us),  # All 0 since they're all "United States"
+        colorscale=[[0, color_map['United States']], [1, color_map['United States']]],
         zmin=0,
         zmax=1,
-        showscale=False,  
+        showscale=False,
         marker_line_color='black',
-        marker_line_width=0.5
+        marker_line_width=0.5,
+        name='United States',
+        hoverinfo='location'
     ))
 
-    # fig.update_traces(marker=dict(colorscale=colors))
+    # China trace
+    fig.add_trace(go.Choropleth(
+        locations=countries_china,
+        locationmode='country names',
+        z=[1] * len(countries_china),  # All 1 since they're all "China"
+        colorscale=[[0, color_map['China']], [1, color_map['China']]],
+        zmin=0,
+        zmax=1,
+        showscale=False,
+        marker_line_color='black',
+        marker_line_width=0.5,
+        name='China',
+        hoverinfo='location'
+    ))
+
+    # Adding a manual legend
+    fig.add_trace(go.Scattergeo(
+        locationmode='country names',
+        locations=[None],  # Empty trace to use for legend
+        marker=dict(size=0.1, color=color_map['United States']),
+        mode='markers',
+        showlegend=True,
+        name='United States'
+    ))
+
+    fig.add_trace(go.Scattergeo(
+        locationmode='country names',
+        locations=[None],  # Empty trace to use for legend
+        marker=dict(size=0.1, color=color_map['China']),
+        mode='markers',
+        showlegend=True,
+        name='China'
+    ))
 
     fig.update_layout(
         title=f'{type}',
         geo=dict(showframe=False, showcoastlines=True, projection_type='equirectangular'),
         height=500,
-        width=700
+        width=700,
+        legend=dict(
+            traceorder="normal",
+            itemsizing="constant"
+        )
     )
 
     fig.show()
@@ -714,9 +761,6 @@ def cumulative_distribution(centrality, type, color):
 
     fig.show()
 
-
-# COSE NON USATE (O ANCORA NON USATE)
-# Pearson correlation coefficient
 def correlation_cd(clustering_coeffs, degree_centrality, color='skyblue'):
     clustering_coeffs_values = list(clustering_coeffs.values())
     degree_centrality_values = list(degree_centrality.values())
@@ -745,6 +789,8 @@ def correlation_cd(clustering_coeffs, degree_centrality, color='skyblue'):
 
     fig.show()
     return correlation, p_value
+
+# COSE NON USATE (O ANCORA NON USATE)
 
 def kcores(G, a, b):
     k_values = range(a, b)  # Define the k values
