@@ -1079,13 +1079,14 @@ def plot_commodity_on_world_map(G, centrality, commodity, title='Commodity Shari
 def kcores(G, a, b):
     k_values = range(a, b)  # Define the k values
     k_core_nodes_dict = {}  # Dictionary to store k-core nodes
-
+    k_cores_counts = {}
     for k in k_values:
         k_core_subgraph = nx.k_core(G, k)
         k_core_nodes = set(k_core_subgraph.nodes())
 
         if len(k_core_nodes) > 0:  # Only store non-empty k-cores
             k_core_nodes_dict[k] = k_core_nodes
+            k_cores_counts[str(k)+'-core'] = len(k_core_nodes)
             print(f"\nNodes in the {k}-core ({len(k_core_nodes)} elements):", sorted(k_core_nodes))
 
     # Find the highest k-core with nodes
@@ -1095,8 +1096,26 @@ def kcores(G, a, b):
     else:
         most_high_kcore = set()
 
-    return k_core_nodes_dict, most_high_kcore
+    return k_core_nodes_dict, most_high_kcore, k_cores_counts
 
+def plot_kcore_histogram(k_cores_counts):
+    # Extract keys and values from the dictionary
+    k_cores = list(k_cores_counts.keys())
+    node_counts = list(k_cores_counts.values())
+
+    # Create the bar chart
+    fig = go.Figure(data=[go.Bar(x=k_cores, y=node_counts, marker_color='skyblue')])
+    
+    # Customize the layout
+    fig.update_layout(
+        title="Distribution of Nodes in k-Cores",
+        xaxis_title="k-Core",
+        yaxis_title="Number of Nodes",
+        template="plotly_white"
+    )
+    
+    # Show the plot
+    fig.show()
 # COSE NON USATE (O ANCORA NON USATE)
 
 # Plot the Degree Correlation
