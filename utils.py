@@ -985,7 +985,7 @@ def count_commodities(node_attributes1, node_attributes2, n=15):
 
 def plot_commodity_on_world_map(G, centrality, commodity, title='Commodity Sharing Network Visualization', edges_color='skyblue', highlight_edges_color='lightcoral', markers_color = '#3366cc', highlight_markers_color = '#dc3912'):
     nodes_to_highlight = set()
-    edges_to_highlight = set()
+    #edges_to_highlight = set()
 
     for country, data in G.nodes(data=True):
         export_commodities = data.get('Export Commodities SITC', [])
@@ -993,9 +993,9 @@ def plot_commodity_on_world_map(G, centrality, commodity, title='Commodity Shari
         if commodity in commodities:
             nodes_to_highlight.add(country)
 
-    for edge in G.edges():
-        if edge[0] in nodes_to_highlight and edge[1] in nodes_to_highlight:
-            edges_to_highlight.add(edge)
+    #for edge in G.edges():
+    #    if edge[0] in nodes_to_highlight and edge[1] in nodes_to_highlight:
+    #        edges_to_highlight.add(edge)
 
     edge_trace = go.Scattergeo(
         locationmode='ISO-3',
@@ -1019,12 +1019,12 @@ def plot_commodity_on_world_map(G, centrality, commodity, title='Commodity Shari
         if 'x' in G.nodes[edge[0]] and 'y' in G.nodes[edge[0]] and 'x' in G.nodes[edge[1]] and 'y' in G.nodes[edge[1]]:
             x0, y0 = G.nodes[edge[0]]['x'], G.nodes[edge[0]]['y']
             x1, y1 = G.nodes[edge[1]]['x'], G.nodes[edge[1]]['y']
-            if edge in edges_to_highlight:
-                highlighted_edge_trace['lon'] += (x0, x1, None)
-                highlighted_edge_trace['lat'] += (y0, y1, None)
-            else:
-                edge_trace['lon'] += (x0, x1, None)
-                edge_trace['lat'] += (y0, y1, None)
+            #if edge in edges_to_highlight:
+            #    highlighted_edge_trace['lon'] += (x0, x1, None)
+            #    highlighted_edge_trace['lat'] += (y0, y1, None)
+            #else:
+            edge_trace['lon'] += (x0, x1, None)
+            edge_trace['lat'] += (y0, y1, None)
 
     max_centrality = max(centrality.values())
     min_centrality = min(centrality.values())
@@ -1262,6 +1262,6 @@ def plot_kcore_histogram(k_cores_counts):
         
 #         avg_shortest_path_length = total_length / total_nodes if total_nodes > 0 else float('inf')
 #         print(f"Average Shortest Path Length (average of strongly connected components): {avg_shortest_path_length:.4f}")
-#     return avg_shortest_path_length a
+#     return avg_shortest_path_length 
 
 
