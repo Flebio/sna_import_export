@@ -1262,6 +1262,6 @@ def plot_kcore_histogram(k_cores_counts):
         
 #         avg_shortest_path_length = total_length / total_nodes if total_nodes > 0 else float('inf')
 #         print(f"Average Shortest Path Length (average of strongly connected components): {avg_shortest_path_length:.4f}")
-#     return avg_shortest_path_length
+#     return avg_shortest_path_length a
 
 
