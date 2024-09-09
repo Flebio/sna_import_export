@@ -1238,10 +1238,6 @@ def plot_kcore_histogram(k_cores_counts):
 
 #     fig.show()
 
-# def print_common_commodities(commodity_to_countries, type='Export'):
-#     for commodity, countries in commodity_to_countries.items():
-#         if len(countries) > 1:
-#             print(f"Commodity '{commodity}' is shared by countries: {', '.join(countries)}")
 
 # def avg_shortestpath(G):
 #     if nx.is_strongly_connected(G):
