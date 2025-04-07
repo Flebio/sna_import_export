@@ -45,13 +45,6 @@ We focus on both **imports** and **exports** as separate directed networks to of
 - **Plotly**: For interactive visualizations
 - **NetworkX**: Graph creation and analysis
 
----
-
-## 👥 Authors
-
-- **Fabio Zanotti** – Artificial Intelligence  
-- **Edoardo Conca** – Artificial Intelligence  
-- **Antonio Morelli** – Artificial Intelligence  
 
 
 
